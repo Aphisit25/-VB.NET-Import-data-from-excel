@@ -127,3 +127,114 @@
         End Sub
 
     End Class
+
+
+' Code Completed
+
+Imports System.Data.OleDb
+Public Class frmImportExcel
+
+    Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+
+    End Sub
+
+    Private Sub btnOpenExcel_Click(sender As Object, e As EventArgs) Handles btnOpenExcel.Click
+        'Dim dlgOpenFile As OpenFileDialog = New OpenFileDialog()
+
+        Dim dlgOpenFile As OpenFileDialog = New OpenFileDialog()
+        ' / ตั้งค่าการใช้งาน Open File Dialog
+        With dlgOpenFile
+            '.InitialDirectory = MyPath(Application.StartupPath)
+            .Title = "เลือกไฟล์ MS Excel"
+            .Filter = "All Files (*.*)|*.*|Excel files (*.xlsx)|*.xlsx|CSV Files (*.csv)|*.csv|XLS Files (*.xls)|*xls"
+            .FilterIndex = 1
+            .RestoreDirectory = True
+        End With
+        '/ หากเลือกปุ่ม OK หลังจากการ Browse ...
+        If dlgOpenFile.ShowDialog() = DialogResult.OK Then
+            txtPathFile.Text = dlgOpenFile.FileName
+            Dim strConn As String = _
+                " Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & _
+                dlgOpenFile.FileName & ";" & _
+                " Extended Properties=""Excel 12.0 Xml; HDR=YES"";"
+            Dim Conn As New OleDbConnection(strConn)
+            Conn.Open()
+            '/ มอง WorkSheet ให้เป็นตารางข้อมูล (Table)
+            Dim dtSheets As DataTable = Conn.GetOleDbSchemaTable(OleDbSchemaGuid.Tables, Nothing)
+            Dim drSheet As DataRow
+
+            cbChooseSheet.Items.Clear()
+            '/ นำรายชื่อ WorkSheet ทั้งหมด มาเก็บไว้ที่ ComboBox เพื่อรอให้ User เลือกนำไปใช้งาน
+            For Each drSheet In dtSheets.Rows
+                cbChooseSheet.Items.Add(drSheet("TABLE_NAME").ToString)
+            Next
+            Conn.Close()
+        End If
+    End Sub
+
+    Private Sub cbChooseSheet_SelectedIndexChanged(sender As Object, e As EventArgs) Handles cbChooseSheet.SelectedIndexChanged
+        Dim Conn As OleDbConnection
+        Dim Comm As OleDbCommand
+        Dim DAP As OleDbDataAdapter
+        Dim DS As DataSet
+
+        Dim strConn As String = _
+            " Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & _
+            txtPathFile.Text & ";" & _
+            " Extended Properties=""Excel 12.0 Xml; HDR=YES"";"
+        Try
+            Conn = New OleDbConnection
+            Conn.ConnectionString = strConn
+            Comm = New OleDbCommand
+            '/ เสมือน WorkSheet เป็น Table ในฐานข้อมูล
+            Comm.CommandText = "Select * FROM [" & cbChooseSheet.Text & "]"
+            Comm.Connection = Conn
+            DAP = New OleDbDataAdapter(Comm)
+            DS = New DataSet
+            Conn.Open()
+            DAP.Fill(DS, "Sheet1")
+            '/ ผูกข้อมูล (Bound Data) เข้ากับ Sheet1
+            dgvImportExcel.DataSource = DS.Tables("Sheet1")
+            '//
+            Call SetupDGVData()
+
+        Catch ex As Exception
+            MessageBox.Show(ex.Message)
+        Finally
+            Conn = Nothing
+            Comm = Nothing
+            DAP = Nothing
+            DS = Nothing
+        End Try
+    End Sub
+
+    Private Sub SetupDGVData()
+        With dgvImportExcel
+            .RowHeadersVisible = False
+            .AllowUserToAddRows = False
+            .AllowUserToDeleteRows = False
+            .AllowUserToResizeRows = False
+            .MultiSelect = False
+            .SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            .ReadOnly = True
+            .Font = New Font("Tahoma", 9)
+            ' Autosize Column
+            .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            '// Even-Odd Color
+            .AlternatingRowsDefaultCellStyle.BackColor = Color.AliceBlue
+            ' Adjust Header Styles
+            With .ColumnHeadersDefaultCellStyle
+                .BackColor = Color.Navy
+                .ForeColor = Color.Black ' Color.White
+                .Font = New Font("Tahoma", 9, FontStyle.Bold)
+            End With
+        End With
+    End Sub
+
+    Private Sub btnExit_Click(sender As Object, e As EventArgs) Handles btnExit.Click
+        If MessageBox.Show("คุณต้องการออกจากโปรแกรมใช่หรือไม่??", "คำยืนยัน", MessageBoxButtons.YesNo, MessageBoxIcon.Question) = Windows.Forms.DialogResult.Yes Then
+            Application.Exit()
+        End If
+    End Sub
+End Class
+
